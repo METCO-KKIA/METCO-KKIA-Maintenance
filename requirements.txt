@@ -1,0 +1,16 @@
+Flask
+pandas
+openpyxl
+python-docx
+Werkzeug
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+gunicorn
+flask-socketio
+eventlet
+Flask==2.2.5
+Flask-SocketIO==5.3.4
+python-socketio==5.7.2
+eventlet==0.33.3
