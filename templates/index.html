@@ -1,0 +1,528 @@
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 1: Page Setup & General Styling | إعداد الصفحة والتنسيق العام -->
+<!-- ============================================================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>METCO Maintenance System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body {
+      padding: 2rem;
+      background: linear-gradient(to bottom right, #e3f2fd, #f8f9fa);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .logo-container {
+      background-color: #d6ecff;
+      padding: 1rem;
+      text-align: center;
+      border-radius: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    .logo-container img {
+      width: 100%;
+      max-width: 1000px;
+      height: auto;
+    }
+    h4, h5 { color: #0d6efd; }
+    small.ar { display: block; font-size: 0.75rem; color: #666; }
+    .half { width: 49%; }
+    .edit-btn, .btn:hover { transition: 0.3s ease; transform: scale(1.05); opacity: 0.9; }
+    .card:hover { background-color: #f1f8ff; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 2: Title, Alert, and Logo | العنوان والشعار والتنبيه -->
+<!-- ============================================================= -->
+{% if message %}<div class="alert alert-warning text-center mt-4">⚠️ {{ message }}</div>{% endif %}
+<h1 class="text-center">📋 METCO Maintenance System <small class="ar">نظام صيانة METCO</small></h1>
+<div class="logo-container">
+  <img src="/static/Metco-logo.png" alt="Metco Logo" />
+</div>
+<div style="padding: 10px; background-color: #eef; border-top: 2px solid #ccc; border-bottom: 2px solid #ccc; font-family: Arial, sans-serif; font-size: 1rem; text-align: center;">
+  👤 User: <strong>{{ session_username }}</strong> |
+  🏢 Company: <strong>{{ session_company }}</strong> |
+  🏭 Facility: <strong>{{ session_facility }}</strong> |
+  ⏱️ Logged in since: <strong>{{ session_login_time }}</strong> |
+  </div>
+    🎨 Designed by <strong>Ahmed Reda Ali</strong>
+</div>
+<div class="text-center my-4">
+  <a href="/chat" class="btn btn-info btn-lg">💬 Open Team Chat</a>
+</div>
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 3: Search and Results | البحث والنتائج -->
+<!-- ============================================================= -->
+<h2 class="text-center">🔍 Asset & PM Search <small class="ar">البحث في الأصول والصيانة الوقائية</small></h2>
+<input type="text" id="searchInput" class="form-control" placeholder="Search in PM and Asset...">
+<div id="results" class="mt-4 d-flex gap-3 flex-wrap">
+  <div class="half" id="assetResults">
+    <h4>📂 Asset List Results</h4>
+    <div class="table-container"></div>
+  </div>
+  <div class="half" id="pmResults">
+    <h4>🛠️ PM List Results</h4>
+    <div class="table-container"></div>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 4: Timer Bar | المؤقتات مع عرض التفاصيل والصوت -->
+<!-- ============================================================= -->
+<audio id="alarmSound" src="/static/alarm.mp3" preload="auto"></audio>
+<div id="alarmBar" class="fixed-bottom container mt-5 mb-5 p-3" style="display:none;background:#fff3cd;border:2px solid #ffc107;border-radius:8px;z-index:1050;">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <strong id="alarmTitle">⏰ Active Timers</strong>
+    <button id="hideAlarmBar" class="btn btn-sm btn-outline-danger">⛔ Hide</button>
+  </div>
+  <div id="alarmItems" class="d-flex flex-wrap gap-2"></div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 5: ZIP File Manager | إدارة ملفات ZIP -->
+<!-- ============================================================= -->
+<hr class="my-4">
+<div class="row mb-3">
+  <div class="col-md-6 offset-md-3">
+    <input type="text" id="zipSearch" class="form-control" placeholder="Search ZIP files by name...">
+  </div>
+</div>
+<div class="d-flex justify-content-between">
+  <div><input type="checkbox" id="selectAllZips"> <label for="selectAllZips">🗂️ Select All</label></div>
+  <button id="deleteSelectedZips" class="btn btn-danger btn-sm" disabled>❌ Delete Selected</button>
+</div>
+<ul id="zipResults" class="list-group mt-2"></ul>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 6: Excel Reports | تقارير CM و PM -->
+<!-- ============================================================= -->
+<hr class="my-4">
+<h4 class="text-center">📊 Generate CM & PM TKT Reports</h4>
+<div class="row">
+  <div class="col-md-6">
+    <form method="POST" action="/generate_excel">
+      <input type="hidden" name="type" value="asset">
+      <label>From:</label>
+      <input type="date" name="start_date" class="form-control mb-2" required>
+      <label>To:</label>
+      <input type="date" name="end_date" class="form-control mb-2" required>
+      <button type="submit" class="btn btn-success">⬇️ Download CM TKT</button>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <form method="POST" action="/generate_excel">
+      <input type="hidden" name="type" value="pm">
+      <label>From:</label>
+      <input type="date" name="start_date" class="form-control mb-2" required>
+      <label>To:</label>
+      <input type="date" name="end_date" class="form-control mb-2" required>
+      <button type="submit" class="btn btn-success">⬇️ Download PM TKT</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 7: Excel Upload/Delete | رفع ملفات Excel -->
+<!-- ============================================================= -->
+<hr class="my-4">
+<h4 class="text-center">📤 Upload / Delete Excel Files</h4>
+<div class="row">
+  <div class="col-md-6">
+    <form method="POST" action="/upload_excel" enctype="multipart/form-data">
+      <label>Upload Asset Excel File:</label>
+           <div id="asset-file-info" class="text-muted mt-1 small"></div>
+      <input type="file" name="file" accept=".xlsx" class="form-control mb-2" required>
+      <input type="hidden" name="type" value="asset">
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+    <form method="POST" action="/delete_excel/asset">
+      <button type="submit" class="btn btn-danger">❌ Delete Asset File</button>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <form method="POST" action="/upload_excel" enctype="multipart/form-data">
+      <label>Upload PM Excel File:</label>
+           <div id="pm-file-info" class="text-muted mt-1 small"></div>
+      <input type="file" name="file" accept=".xlsx" class="form-control mb-2" required>
+      <input type="hidden" name="type" value="pm">
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+    <form method="POST" action="/delete_excel/pm">
+      <button type="submit" class="btn btn-danger">❌ Delete PM File</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================= -->
+<!-- 🔷🧩 SECTION 8: Upload Credentials | رفع ملف Google credentials.json -->
+<!-- ============================================================= -->
+<hr class="my-4">
+<h4 class="text-center">🔐 Upload Google Credentials</h4>
+<form method="POST" action="/upload_credentials" enctype="multipart/form-data" class="mb-3">
+  <input type="file" name="credentials_file" accept="application/json" class="form-control mb-2" required>
+  <button type="submit" class="btn btn-warning">Upload credentials.json</button>
+</form>
+
+{% if credentials_status %}
+  <p class="text-muted">Last uploaded: <strong>{{ credentials_status[0] }}</strong> at {{ credentials_status[1] }}</p>
+{% else %}
+  <p class="text-muted">No credentials file uploaded yet.</p>
+{% endif %}
+
+
+<!-- ============================================================= -->
+<!-- 🔹🧩 SECTION 9: Logout | تسجيل الخروج -->
+<!-- ============================================================= -->
+<hr class="my-4">
+<div class="text-center">
+  <form method="POST" action="/logout">
+    <button type="submit" class="btn btn-outline-secondary">🚪 Log Out <small class="ar">تسجيل الخروج</small></button>
+  </form>
+</div>
+
+<!-- ============================================================= -->
+<!-- 🔹🧩 SECTION 10: Scripts | السكربتات -->
+<!-- ============================================================= -->
+<script>
+$(document).ready(function () {
+  // ======= Timer Logic with Alarm and Grouping =======
+  let alarmBarManuallyHidden = false;
+  function renderAlarmBar() {
+    const alarmBar = $("#alarmBar");
+    const alarmItems = $("#alarmItems");
+    const timers = JSON.parse(localStorage.getItem("timers") || "[]");
+    const now = Date.now();
+    let hasExpired = false;
+    alarmItems.empty();
+
+    const grouped = {};
+    timers.forEach(t => {
+      const key = t.ticket + '_' + t.serial;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(t);
+    });
+
+    Object.entries(grouped).forEach(([key, items]) => {
+  // 👇 أضف السطر ده هنا
+  items.forEach((t, i) => t.index = timers.indexOf(t));
+
+  const main = items[0];
+  const expired = items.some(t => now > t.expiresAt);
+  const mins = Math.floor(Math.max(0, main.expiresAt - now) / 60000);
+  const sec = Math.floor((Math.max(0, main.expiresAt - now) % 60000) / 1000);
+  const label = expired ? "🚨" : "⏳";
+
+  const card = $(`
+    <div class="border rounded p-2 text-dark position-relative" style="min-width: 200px; background-color: ${expired ? '#f8d7da' : '#f8f9fa'};">
+      <strong>${label} Ticket ${main.ticket}</strong><br>
+      <small>${main.serial}</small><br>
+      <div><strong>Location:</strong> ${main.location || ''}</div>
+      <div><strong>Description:</strong> ${main.description || ''}</div>
+      ${expired ? `
+        <button class="btn btn-sm btn-success resolve-btn mt-1" data-ticket="${main.ticket}">✅ Resolved</button>
+        <button class="btn btn-sm btn-warning extend-toggle-btn mt-1" data-index="${main.index}">⏳ Extend</button>
+        <div class="extend-options mt-2" style="display: none;">
+          <input type="number" class="form-control form-control-sm mb-1 extend-days" placeholder="Days">
+          <input type="number" class="form-control form-control-sm mb-1 extend-hours" placeholder="Hours">
+          <input type="number" class="form-control form-control-sm mb-1 extend-mins" placeholder="Minutes">
+          <button class="btn btn-sm btn-primary confirm-extend-btn" data-index="${main.index}">✔️ Confirm</button>
+        </div>
+      ` : `<span>${mins} min ${sec} sec remaining</span>`}
+    </div>
+  `);
+
+      alarmItems.append(card);
+      if (expired && !main.expired) {
+        main.expired = true;
+        hasExpired = true;
+      }
+    });
+
+    localStorage.setItem("timers", JSON.stringify(timers));
+    if (timers.length > 0 && (!alarmBarManuallyHidden || hasExpired)) {
+      alarmBar.slideDown();
+      alarmBarManuallyHidden = false;
+    } else {
+      alarmBar.hide();
+    }
+    if (hasExpired) document.getElementById("alarmSound").play();
+  }
+
+  $(document).on("click", ".resolve-btn", function () {
+    const ticket = $(this).data("ticket").toString();
+    if (confirm("هل أنت متأكد من إنهاء التايمر؟")) {
+      let timers = JSON.parse(localStorage.getItem("timers") || "[]");
+      timers = timers.filter(t => t.ticket.toString() !== ticket);
+      localStorage.setItem("timers", JSON.stringify(timers));
+      renderAlarmBar();
+    }
+  });
+
+  $(document).on("click", ".extend-toggle-btn", function () {
+    $(this).siblings(".extend-options").slideToggle();
+  });
+
+  $(document).on("click", ".confirm-extend-btn", function () {
+    const index = $(this).data("index");
+    const parent = $(this).closest(".extend-options");
+    const d = parseInt(parent.find(".extend-days").val() || "0") * 86400000;
+    const h = parseInt(parent.find(".extend-hours").val() || "0") * 3600000;
+    const m = parseInt(parent.find(".extend-mins").val() || "0") * 60000;
+    const extra = d + h + m;
+
+    if (extra > 0) {
+      const timers = JSON.parse(localStorage.getItem("timers") || "[]");
+      if (timers[index]) {
+        timers[index].expiresAt = Date.now() + extra;
+        timers[index].expired = false;
+        localStorage.setItem("timers", JSON.stringify(timers));
+        renderAlarmBar();
+        alert("⏳ Timer extended.");
+      }
+    }
+  });
+
+  $("#hideAlarmBar").click(function () {
+    alarmBarManuallyHidden = true;
+    $("#alarmBar").slideUp();
+  });
+
+  setInterval(renderAlarmBar, 10000);
+  renderAlarmBar();
+
+// ======= Search Function =======
+function renderResults(data, containerId, type) {
+  const grouped = {};
+  data.forEach(item => {
+    const sheet = item.SheetName;
+    if (!grouped[sheet]) grouped[sheet] = [];
+    grouped[sheet].push(item);
+  });
+
+  const container = $(`#${containerId} .table-container`);
+  container.empty();
+
+  for (const [sheet, items] of Object.entries(grouped)) {
+    const section = $('<div class="mb-4">');
+    section.append(`<div class="sheet-title">${sheet}</div>`);
+
+    items.forEach(item => {
+      const card = $('<div class="card p-3 mb-2 shadow-sm bg-white border rounded">');
+      const keys = Object.keys(item).filter(k => k !== "SheetName" && k !== "RowIndex");
+
+      // عرض البيانات داخل الكارت
+      keys.forEach(k => {
+        card.append(`<div><strong>${k}:</strong> ${item[k]}</div>`);
+      });
+
+      // رابط صفحة التعديل
+      const editLink = `/edit${type === "asset" ? "_asset" : ""}?type=${type}&sheet=${sheet}&row=${item.RowIndex}`;
+
+      // رابط التحقق من هل تم حفظ السجل من قبل؟
+      const checkUrl = `/check_if_already_saved?type=${type}&sheet=${sheet}&row=${item.RowIndex}`;
+
+      // زر "Edit"
+      const editButton = $(`<button class="btn btn-sm btn-outline-primary edit-btn mt-2">✏️ Edit</button>`);
+
+      // عند الضغط عليه:
+      editButton.click(() => {
+        $.get(checkUrl, function (res) {
+          if (res.already_saved) {
+            if (!confirm(" This record has already been modified. Do you want to open it for editing again⚠️ تم تعديل هذا السجل مسبقًا. هل تريد فتحه للتعديل مرة أخرى؟")) return;
+          }
+          window.location.href = editLink;
+        }).fail(() => {
+          alert("❌ تعذر التحقق من حالة السجل، سيتم فتحه على أي حال.");
+          window.location.href = editLink;
+        });
+      });
+
+      card.append(editButton);
+      section.append(card);
+    });
+
+    container.append(section);
+  }
+}
+
+
+  $("#searchInput").on("input", function () {
+    const keyword = $(this).val().trim();
+    if (!keyword) {
+      $("#assetResults .table-container, #pmResults .table-container").empty();
+      return;
+    }
+    $.get("/search", { keyword, source: "asset" }, d => renderResults(d.results, "assetResults", "asset"));
+    $.get("/search", { keyword, source: "pm" }, d => renderResults(d.results, "pmResults", "pm"));
+  });
+
+  // ======= ZIP Search and Delete =======
+  function fetchFilteredZips() {
+    const query = $("#zipSearch").val().trim().toLowerCase();
+    if (!query) {
+      $("#zipResults").empty();
+      $("#deleteSelectedZips").prop("disabled", true);
+      return;
+    }
+    $.ajax({
+      type: "POST",
+      url: "/search_zip",
+      contentType: "application/json",
+      data: JSON.stringify({ query }),
+      success: files => {
+        const list = $("#zipResults").empty();
+        if (files.length === 0) {
+          list.append(`<li class="list-group-item text-muted text-center">🔍 No ZIP files found</li>`);
+          $("#deleteSelectedZips").prop("disabled", true);
+          return;
+        }
+        files.forEach(f => {
+          list.append(`
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <input type="checkbox" class="zip-checkbox me-2" value="${f}">
+                <a href="/download_zip_by_name/${f}" target="_blank">${f}</a>
+              </div>
+              <button class="btn btn-sm btn-outline-danger delete-single-zip" data-filename="${f}">🗑️</button>
+            </li>
+          `);
+        });
+      },
+      error: () => alert("❌ Failed to load ZIP files.")
+    });
+  }
+
+  $("#zipSearch").on("input", fetchFilteredZips);
+  $(document).on("change", "#selectAllZips", function () {
+    $(".zip-checkbox").prop("checked", this.checked);
+    $("#deleteSelectedZips").prop("disabled", $(".zip-checkbox:checked").length === 0);
+  });
+  $(document).on("change", ".zip-checkbox", function () {
+    $("#deleteSelectedZips").prop("disabled", $(".zip-checkbox:checked").length === 0);
+  });
+  $("#deleteSelectedZips").click(function () {
+    const selected = $(".zip-checkbox:checked").map(function () { return $(this).val(); }).get();
+    if (selected.length && confirm(`Delete ${selected.length} file(s)?`)) {
+      $.ajax({
+        type: "POST",
+        url: "/delete_zip_batch",
+        contentType: "application/json",
+        data: JSON.stringify({ files: selected }),
+        success: () => { alert("✅ Files deleted."); fetchFilteredZips(); },
+        error: () => alert("❌ Failed to delete.")
+      });
+    }
+  });
+  $(document).on("click", ".delete-single-zip", function () {
+    const filename = $(this).data("filename");
+    if (confirm(`Delete ${filename}?`)) {
+      $.ajax({
+        type: "POST",
+        url: "/delete_zip",
+        contentType: "application/json",
+        data: JSON.stringify({ filename }),
+        success: () => { alert("🖑 File deleted."); fetchFilteredZips(); },
+        error: () => alert("❌ Failed to delete file.")
+      });
+    }
+  });
+});
+</script>
+<script>
+function loadUploadedExcelInfo() {
+  ['pm', 'asset'].forEach(type => {
+    fetch(`/get_uploaded_excel_info/${type}`)
+      .then(response => response.json())
+      .then(data => {
+        const el = document.getElementById(`${type}-file-info`);
+        if (data.filename) {
+          const date = new Date(data.created_at).toLocaleString();
+          el.textContent = `📄 ${data.filename} | 🕒 ${date}`;
+        } else {
+          el.textContent = '❌ لا يوجد ملف مرفوع.';
+        }
+      });
+  });
+}
+
+window.addEventListener("load", loadUploadedExcelInfo);
+</script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  const chatSound = document.getElementById("chat-sound");
+  const chatPopup = $("#chat-popup");
+  const chatMessages = $("#chat-messages");
+  const chatQueue = [];
+
+  function updateChatPopup(user, message) {
+    chatQueue.push(`<div><strong>${user}:</strong> ${message}</div>`);
+    if (chatQueue.length > 10) chatQueue.shift();  // آخر 10 رسائل فقط
+    chatMessages.append(`<div><strong>${user}:</strong> ${message}</div>`);
+    chatPopup.show();
+    chatSound.currentTime = 0;
+    chatSound.play();
+  }
+
+  socket.on("receive_message", function (data) {
+    if (data.message) updateChatPopup(data.user, data.message);
+  });
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+</script>
+<!-- ✅ صوت تنبيهي عند استقبال الرسالة -->
+<audio id="chat-sound" src="/static/gta.mp3" preload="auto"></audio>
+
+<div id="chat-popup" style="display:none; position:fixed; bottom:20px; right:20px; width:300px; background: linear-gradient(145deg, #cfe9ff, #e3f4ff); border:2px solid #007bff; border: 2px solid #5ba2e0; box-shadow:0 0 10px rgba(0,0,0,0.2); z-index:9999; padding:10px;">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <strong>💬 New Messages</strong>
+    <button onclick="$('#chat-popup').hide()" class="btn-close btn-sm"></button>
+  </div>
+ <div id="chat-messages" style="
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  display: block;
+"></div>
+
+<script>
+  const socket = io();
+  const chatSound = document.getElementById("chat-sound");
+  const chatPopup = $("#chat-popup");
+  const chatMessages = $("#chat-messages");
+  const chatQueue = [];
+
+function updateChatPopup(user, message) {
+  chatMessages.append(`<div><strong>${user}:</strong> ${message}</div>`);
+  chatPopup.show();
+  chatMessages.scrollTop(chatMessages[0].scrollHeight);
+  chatSound.currentTime = 0;
+  chatSound.play();
+}
+
+
+  socket.on("receive_message", function (data) {
+    if (data.message) updateChatPopup(data.user, data.message);
+  });
+</script>
+<style>
+  #chat-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  #chat-messages::-webkit-scrollbar-thumb {
+    background-color: #007bff;
+    border-radius: 4px;
+  }
+
+  #chat-messages::-webkit-scrollbar-track {
+    background-color: #f1f1f1;
+  }
+</style>
+</body>
+</html>

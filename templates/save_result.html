@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Saved Successfully</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 60px;
+      background-color: #f9f9f9;
+    }
+    .btn-lg {
+      font-size: 1.3rem;
+      padding: 15px 30px;
+      margin: 10px;
+      width: 250px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+    .btn-blue {
+      background-color: royalblue;
+      color: white;
+    }
+    .btn-blue:hover {
+      background-color: #204d99;
+    }
+    .btn-yellow {
+      background-color: goldenrod;
+      color: white;
+    }
+    .btn-yellow:hover {
+      background-color: #d4a017;
+    }
+    .btn-red {
+      background-color: crimson;
+      color: white;
+    }
+    .btn-red:hover {
+      background-color: #a50000;
+    }
+  </style>
+</head>
+<body>
+<div style="padding: 10px; background-color: #eef; border-top: 2px solid #ccc; border-bottom: 2px solid #ccc; font-family: Arial, sans-serif; font-size: 1rem; text-align: center;">
+  👤 User: <strong>{{ session_username }}</strong> |
+  🏢 Company: <strong>{{ session_company }}</strong> |
+  🏭 Facility: <strong>{{ session_facility }}</strong> |
+  ⏱️ Logged in since: <strong>{{ session_login_time }}</strong> |
+  </div>
+    🎨 Designed by <strong>Ahmed Reda Ali</strong>
+</div>
+
+  <h2 class="mb-4">✅ Task saved and ZIP file created successfully</h2>
+  <p class="mb-5">File name: <strong>{{ zip_file }}</strong></p>
+
+  <form action="{{ url_for('index') }}" method="get">
+    <button type="submit" class="btn btn-lg btn-blue">🏠 Back to Home</button>
+  </form>
+
+  <form action="{{ url_for('logout') }}" method="post">
+    <button type="submit" class="btn btn-lg btn-red">🚪 Logout</button>
+  </form>
+
+  <a href="/chat">
+    <button type="button" class="btn btn-lg btn-yellow">💬 Go to Team Chat</button>
+  </a>
+
+</body>
+</html>

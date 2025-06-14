@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Permissions Admin</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding: 2rem;
+      background-color: #f4f8fb;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    h3 {
+      font-weight: bold;
+      color: #005f99;
+    }
+    table th {
+      background-color: #e9f1f7;
+      text-align: center;
+    }
+    table td {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div style="padding: 10px; background-color: #eef; border-top: 2px solid #ccc; border-bottom: 2px solid #ccc; font-family: Arial, sans-serif; font-size: 1rem; text-align: center;">
+  👤 User: <strong>{{ session_username }}</strong> |
+  🏢 Company: <strong>{{ session_company }}</strong> |
+  🏭 Facility: <strong>{{ session_facility }}</strong> |
+  ⏱️ Logged in since: <strong>{{ session_login_time }}</strong> |
+  </div>
+    🎨 Designed by <strong>Ahmed Reda Ali</strong>
+</div>
+  <div class="container mt-4">
+    <h3 class="mb-4 text-center">🔐 إدارة الصلاحيات الشاملة</h3>
+
+    <form method="POST" action="/update_permissions">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-striped">
+          <thead class="table-light">
+            <tr>
+              <th>👤 Username</th>
+              {% for perm in all_permissions %}
+                <th>{{ perm }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td>{{ user.username }}
+                <input type="hidden" name="usernames" value="{{ user.username }}">
+              </td>
+              {% for perm in all_permissions %}
+                <td>
+                  <input type="checkbox" name="{{ user.username }}_{{ perm }}" {% if perm in user.permissions %}checked{% endif %}>
+                </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-center mt-4">
+        <button type="submit" class="btn btn-success">💾 حفظ التعديلات</button>
+        <a href="/manage_users" class="btn btn-secondary">⬅️ رجوع إلى إدارة المستخدمين</a>
+      </div>
+    </form>
+  </div>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  const username = "{{ session_username }}";  // تأكد من وجوده في كل صفحة
+
+  socket.on('receive_message', function(data) {
+    if (data.user !== username) {
+      showChatNotification(data.user, data.message);
+    }
+  });
+
+  function showChatNotification(sender, message) {
+    const existing = document.getElementById('chat-popup');
+    if (existing) existing.remove();
+
+    const popup = document.createElement('div');
+    popup.id = 'chat-popup';
+    popup.innerHTML = `
+      <div style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #007bff;
+        color: white;
+        padding: 12px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        cursor: pointer;
+        z-index: 9999;
+        font-size: 1rem;
+      ">
+        💬 <strong>${sender}</strong>: ${message}
+      </div>
+    `;
+
+    popup.onclick = () => window.location.href = '/chat';
+    document.body.appendChild(popup);
+
+    setTimeout(() => {
+      if (popup) popup.remove();
+    }, 8000);
+  }
+</script>
+</body>
+</html>

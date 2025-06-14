@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Permissions Management - METCO</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding: 2rem;
+      background: linear-gradient(to right, #e0eafc, #cfdef3);
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .form-section {
+      background: white;
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h3 {
+      font-weight: bold;
+      color: #004085;
+    }
+    label.form-label {
+      font-weight: 600;
+    }
+    .btn {
+      min-width: 120px;
+    }
+  </style>
+</head>
+<body>
+<div style="padding: 10px; background-color: #eef; border-top: 2px solid #ccc; border-bottom: 2px solid #ccc; font-family: Arial, sans-serif; font-size: 1rem; text-align: center;">
+  👤 User: <strong>{{ session_username }}</strong> |
+  🏢 Company: <strong>{{ session_company }}</strong> |
+  🏭 Facility: <strong>{{ session_facility }}</strong> |
+  ⏱️ Logged in since: <strong>{{ session_login_time }}</strong> |
+  </div>
+    🎨 Designed by <strong>Ahmed Reda Ali</strong>
+</div>
+<div class="container">
+  <h3 class="text-center mb-4">🛡️ User Permissions Management</h3>
+
+  {% set current_perms = permissions or [] %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} text-center">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="GET" action="/manage_users">
+    <div class="mb-3">
+      <label class="form-label">🔍 Search or Select Username</label>
+      <input type="text" class="form-control form-control-sm mb-2" id="userSearch" placeholder="🔎 Search user...">
+      <select name="username" class="form-select form-select-sm" id="userSelect" required onchange="this.form.submit()">
+        {% for u in all_users %}
+               {% if u != 'Ar' or session_username == 'Ar' %}
+                 <option value="{{ u }}" {% if u == selected_username %}selected{% endif %}>{{ u }}</option>
+  {% endif %}
+{% endfor %}
+      </select>
+    </div>
+  </form>
+
+  <div class="form-section mt-4">
+    <form method="POST" action="/add_permissions">
+      <input type="hidden" name="target_username" value="{{ selected_username }}">
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">🧑 First Name</label>
+          <input type="text" class="form-control form-control-sm" name="first_name" value="{{ first_name or '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">👨‍👩‍👦 Last Name</label>
+          <input type="text" class="form-control form-control-sm" name="last_name" value="{{ last_name or '' }}">
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">📧 Email</label>
+          <input type="email" class="form-control form-control-sm" name="email" value="{{ email or '' }}">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">🏢 Company</label>
+          <select class="form-select form-select-sm" name="company">
+            {% for c in companies %}
+              <option value="{{ c }}" {% if c == company %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+          {% if role in ['admin', 'data_admin'] %}
+          <input type="text" class="form-control form-control-sm mt-2" name="new_company" placeholder="➕ Add New Company">
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">🏭 Facility</label>
+          <select class="form-select form-select-sm" name="facility">
+            {% for f in facilities %}
+              <option value="{{ f }}" {% if f == facility %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+          {% if role in ['admin', 'data_admin'] %}
+          <input type="text" class="form-control form-control-sm mt-2" name="new_facility" placeholder="➕ Add New Facility">
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">🔐 Password</label>
+          <div class="input-group">
+            <input type="password" class="form-control form-control-sm" id="password" name="new_password">
+            {% if username == 'Ar' %}
+            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="togglePassword()">👁️</button>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">🟢 Active</label>
+          <select class="form-select form-select-sm" name="is_active">
+            <option value="1" {% if is_active %}selected{% endif %}>✅ Active</option>
+            <option value="0" {% if not is_active %}selected{% endif %}>🚫 Inactive</option>
+          </select>
+        </div>
+
+        {% if role in ['admin', 'data_admin'] %}
+        <div class="col-md-12">
+          <label class="form-label">🧑‍💼 Role</label>
+          <select class="form-select form-select-sm" name="role" id="roleSelect" onchange="setPermissionsForRole(this.value)">
+            <option value="viewer" {% if user_role == 'viewer' %}selected{% endif %}>Viewer</option>
+            <option value="user" {% if user_role == 'user' %}selected{% endif %}>User</option>
+            <option value="data_admin" {% if user_role == 'data_admin' %}selected{% endif %}>Data Admin</option>
+            <option value="admin" {% if user_role == 'admin' %}selected{% endif %}>Admin</option>
+          </select>
+        </div>
+
+        <div class="col-md-12 mt-4">
+          <h5>🛡️ Permissions:</h5>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_upload_pm" id="can_upload_pm" {% if 'upload_pm' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_upload_pm">📄 Upload PM Files</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_upload_asset" id="can_upload_asset" {% if 'upload_asset' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_upload_asset">📄 Upload Asset Files</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_delete_excel" id="can_delete_excel" {% if 'delete_excel' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_delete_excel">🗑️ Delete Excel Files</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_generate_reports" id="can_generate_reports" {% if 'generate_reports' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_generate_reports">📊 Generate Reports</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_edit_records" id="can_edit_records" {% if 'edit_records' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_edit_records">✏️ Edit Records</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_view_zip" id="can_view_zip" {% if 'view_zip' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_view_zip">📦 View ZIP Files</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_add_users" id="can_add_users" {% if 'add_users' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_add_users">➕ Manage Users</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_view_edit_asset" id="can_view_edit_asset" {% if 'view_edit_asset' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_view_edit_asset">🛠️ View/Edit Asset</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="can_view_edit" id="can_view_edit" {% if 'view_edit' in current_perms %}checked{% endif %}>
+                <label class="form-check-label" for="can_view_edit">📂 View/Edit PM</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="col-12 mt-4 text-center d-flex justify-content-center flex-wrap gap-2">
+          <button type="submit" class="btn btn-success btn-sm">💾 Save</button>
+          <a href="/create_user" class="btn btn-primary btn-sm">➕ New User</a>
+          <a href="/permissions_admin" class="btn btn-info btn-sm">⚙️ Full Permissions</a>
+          <form method="POST" action="/delete_user/{{ selected_username }}" style="display:inline;" onsubmit="return confirm('Delete user?')">
+            <button type="submit" class="btn btn-danger btn-sm">🗑️ Delete</button>
+          </form>
+          <form method="POST" action="/disable_user/{{ selected_username }}" style="display:inline;" onsubmit="return confirm('Disable user?')">
+            <button type="submit" class="btn btn-warning btn-sm">⛔ Disable</button>
+          </form>
+          <form method="POST" action="/logout" style="display:inline;">
+            <button type="submit" class="btn btn-outline-danger btn-sm">🚪 Logout</button>
+          </form>
+        </div>
+
+        {% if last_modified or last_login %}
+        <div class="col-12 mt-3 text-muted">
+          <p>🕓 Last Modified: {{ last_modified or 'N/A' }}</p>
+          <p>👁️ Last Login: {{ last_login or 'N/A' }}</p>
+        </div>
+        {% endif %}
+
+        {% if selected_username == 'Ar' and user_logs %}
+        <div class="col-12 mt-4">
+          <h5>📋 User Activity Logs</h5>
+          <ul class="list-group">
+            {% for log in user_logs %}
+              <li class="list-group-item">🕒 {{ log }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function togglePassword() {
+    const passField = document.getElementById("password");
+    passField.type = passField.type === "password" ? "text" : "password";
+  }
+
+  document.getElementById('userSearch')?.addEventListener('input', function () {
+    const searchTerm = this.value.toLowerCase();
+    const select = document.getElementById('userSelect');
+    for (let option of select.options) {
+      option.style.display = option.value.toLowerCase().includes(searchTerm) ? 'block' : 'none';
+    }
+  });
+
+  function setPermissionsForRole(role) {
+    const perms = {
+      'admin': ['can_view_zip', 'can_generate_reports', 'can_edit_records', 'can_add_users', 'can_view_edit_asset', 'can_view_edit'],
+      'data_admin': ['can_view_zip', 'can_generate_reports', 'can_edit_records', 'can_upload_pm', 'can_upload_asset', 'can_delete_excel', 'can_add_users', 'can_view_edit_asset', 'can_view_edit'],
+      'user': ['can_edit_records'],
+      'viewer': []
+    };
+    const checkboxes = ['can_view_zip', 'can_generate_reports', 'can_edit_records', 'can_upload_pm', 'can_upload_asset', 'can_delete_excel', 'can_add_users', 'can_view_edit_asset', 'can_view_edit'];
+    checkboxes.forEach(id => {
+      document.getElementById(id).checked = perms[role]?.includes(id);
+    });
+  }
+</script>
+</body>
+</html>
