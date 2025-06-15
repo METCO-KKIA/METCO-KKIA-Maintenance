@@ -3,70 +3,36 @@
 #🔷****
 #🔷****
 ### استيراد المكتبات المطلوبة لتشغيل تطبيق Flask والتعامل مع البيانات، الملفات، الصور، كلمات المرور، Excel/Word، Google Drive وغيرها
-import eventlet
-eventlet.monkey_patch()
-from datetime import timedelta, datetime
+from datetime import timedelta
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, redirect, url_for, session, flash
-from flask_socketio import SocketIO, emit  # ✅ مكتبة الشات المباشر
 import pandas as pd
+from datetime import datetime
 from dateutil import parser
 import os
 import sqlite3
+from werkzeug.utils import secure_filename
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import json
 import shutil
 import re
 import io
-import hashlib
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-from docx import Document
-from docx.shared import Pt, Inches
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from openpyxl import load_workbook
+import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-
 #🔷****
-import json
-from datetime import datetime, timedelta
-
-HISTORY_FILE = 'chat_history.json'
-
-def load_history():
-    try:
-        with open(HISTORY_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_message(user, content):
-    history = load_history()
-    history.append({
-        'user': user,
-        'message': content,
-        'timestamp': datetime.now().isoformat()
-    })
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f)
-
 #🔷****
-socketio = SocketIO(app,
-                    async_mode='eventlet',
-                    cors_allowed_origins="*",
-                    ping_timeout=20,
-                    ping_interval=10)
-
 #🔷****
 #🔷****
 ### تهيئة تطبيق Flask وضبط المفتاح السري للجلسات
 
 app = Flask(__name__)
 app.secret_key = 'your-very-secret-key'
-
-# ⬇️ أضف هذا السطر بعد تهيئة Flask مباشرة
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
-
 @app.context_processor
 def inject_session_data():
     return {
@@ -75,6 +41,7 @@ def inject_session_data():
         'session_facility': session.get('facility', ''),
         'session_login_time': session.get('login_time', '')
     }
+
 #🔷****
 #🔷****
 #🔷****
@@ -364,70 +331,59 @@ def register():
     if facility == '__new__':
         facility = request.form.get('custom_facility') or 'Unknown'
 
-    hashed_password = generate_password_hash(password)
+    conn = sqlite3.connect('data.db')
+    c = conn.cursor()
 
-    try:
-        with sqlite3.connect('data.db') as conn:
-            c = conn.cursor()
-
-            # تحقق من أن اسم المستخدم غير مستخدم مسبقًا
-            c.execute("SELECT id FROM users WHERE username = ?", (username,))
-            if c.fetchone():
-                flash("❌ هذا المستخدم موجود بالفعل.", "danger")
-                return redirect(url_for('index'))
-
-            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            # إضافة المستخدم ببيانات أساسية وصلاحيات 0
-            c.execute('''
-                INSERT INTO users (
-                    first_name, last_name, email, username, password, company, facility,
-                    role, is_active, last_login, last_modified,
-                    can_upload_pm, can_upload_asset, can_delete_excel,
-                    can_generate_reports, can_edit_records, can_view_zip, can_add_users
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                first_name, last_name, email, username, hashed_password, company, facility,
-                'admin', 1, now, now,
-                1, 1, 1, 1, 1, 1, 1
-            ))
-
-            # جلب معرف المستخدم المُنشأ
-            user_id = c.lastrowid
-
-            # إعطاء كل الصلاحيات
-            full_permissions = [
-                'upload_pm', 'upload_asset', 'delete_excel', 'generate_reports',
-                'view_edit', 'view_edit_asset', 'view_dashboard', 'can_add_users'
-            ]
-            for perm in full_permissions:
-                c.execute("INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)", (user_id, perm))
-
-            # تحميل الصلاحيات
-            c.execute("SELECT permission FROM user_permissions WHERE user_id = ?", (user_id,))
-            permissions = [row[0] for row in c.fetchall()]
-
-        # تخزين بيانات الجلسة
-        session.clear()
-        session.permanent = True
-        app.permanent_session_lifetime = timedelta(hours=6)
-        session['user_id']     = user_id
-        session['username']    = username.strip()
-        session['company']     = company
-        session['facility']    = facility
-        session['permissions'] = permissions
-        session['role']        = 'admin'
-        session['login_time']  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        session.modified = True
-
-        print("✅ SESSION SET AFTER REGISTER:", dict(session))
-        flash("✅ تم إنشاء الحساب وتسجيل الدخول بنجاح!", "success")
+    # التحقق من وجود المستخدم مسبقًا
+    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    if c.fetchone():
+        flash("❌ هذا المستخدم موجود بالفعل.", "danger")
+        conn.close()
         return redirect(url_for('index'))
 
-    except Exception as e:
-        print("ERROR in register:", e)
-        flash("❌ حدث خطأ أثناء إنشاء الحساب.", "danger")
-        return redirect(url_for('register'))
+    # إنشاء كلمة مرور مشفرة
+    hashed_password = generate_password_hash(password)
+
+    # إدخال بيانات المستخدم
+    c.execute('''
+        INSERT INTO users (first_name, last_name, email, username, password, company, facility, role, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (first_name, last_name, email, username, hashed_password, company, facility, 'admin', 1))
+    conn.commit()
+
+    # إعطاء كل الصلاحيات
+    c.execute("SELECT id FROM users WHERE username = ?", (username,))
+    user_id = c.fetchone()[0]
+    full_permissions = [
+        'upload_pm', 'upload_asset', 'delete_excel', 'generate_reports',
+        'view_edit', 'view_edit_asset', 'view_dashboard', 'can_add_users'
+    ]
+    for perm in full_permissions:
+        c.execute("INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)", (user_id, perm))
+    conn.commit()
+
+    # ✅ تسجيل الدخول تلقائيًا بعد التسجيل
+    c.execute("SELECT permission FROM user_permissions WHERE user_id = ?", (user_id,))
+    permissions = [row[0] for row in c.fetchall()]
+    conn.close()
+
+    session.clear()
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(hours=6)
+
+    session['user_id']     = user_id
+    session['username']    = username.strip()
+    session['company']     = company
+    session['facility']    = facility
+    session['permissions'] = permissions
+    session['role']        = 'admin'
+    session['login_time']  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    session.modified = True
+    print("✅ SESSION SET AFTER REGISTER:", dict(session))
+
+    flash("✅ تم إنشاء الحساب وتسجيل الدخول بنجاح!", "success")
+    return redirect(url_for('index'))
+
 
 ### ✅ - Login Route: معالجة تسجيل الدخول وتخزين الصلاحيات
 @app.route('/login', methods=['GET', 'POST'])
@@ -1170,30 +1126,24 @@ def delete_zip_batch():
 
 def upload_to_drive(zip_path, filename):
     try:
-        print("🚀 Starting Google Drive upload...")  # لتأكيد بدء العملية
-
-        SCOPES = ['https://www.googleapis.com/auth/drive.file']
+        SCOPES = ['https://www.googleapis.com/auth/drive.file']  # صلاحيات الوصول إلى Google Drive
         creds_info = get_credentials_from_db()
         if not creds_info:
             print("❌ No credentials found in DB")
             return
 
+        # إنشاء Credentials من محتوى JSON المحفوظ
         creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         service = build('drive', 'v3', credentials=creds)
 
-        folder_id = '1f_h_NJVx2eBEo6siiFjdbJgaqHsxDJpi'  # ← تم التعديل هنا
+        folder_id = '1SolVjxUU0iZ7YRgmgt424_JMtkPU6CUG'  # معرف المجلد في Google Drive
         file_metadata = {'name': filename, 'parents': [folder_id]}
         media = MediaFileUpload(zip_path, mimetype='application/zip')
 
-        response = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        print(f"✅ File uploaded to Google Drive: {filename} (ID: {response.get('id')})")
-
+        # تنفيذ عملية الرفع
+        service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     except Exception as e:
-        import traceback
-        print("❌ Google Drive upload failed:")
-        traceback.print_exc()
-
-
+        print("Google Drive upload failed:", e)
 #🔷****
 #🔷****
 #🔷****
@@ -1417,7 +1367,7 @@ def edit_page():
 
     # ✅ السماح المطلق للمستخدم Ar
     if session.get('username') != 'Ar' and not has_permission(session['user_id'], 'view_edit'):
-       return "⛘️ You do not have permission to access this page", 403
+        return "⛘️ لا تملك صلاحية الوصول إلى هذه الصفحة", 403
 
     return render_template('edit_page.html',
                            username=session.get('username'),
@@ -1435,7 +1385,7 @@ def edit_asset_page():
         return redirect(url_for('login'))
 
     if not has_permission(session['user_id'], 'view_edit_asset'):
-        return "⛘️ You do not have permission to access this page", 403
+        return "⛘️ لا تملك صلاحية الوصول إلى هذه الصفحة", 403
 
     sheet = request.args.get('sheet')
     row = request.args.get('row')
@@ -1450,7 +1400,7 @@ def edit_asset_page():
 @app.route('/permissions_admin', methods=['GET'])
 def permissions_admin():
     if 'user_id' not in session or session.get('role') != 'admin':
-        flash("⛔ You do not have permission to access this page.", "danger")
+        flash("⛔ لا تملك صلاحية الدخول.", "danger")
         return redirect(url_for('index'))
 
     all_permissions = [
@@ -1468,18 +1418,10 @@ def permissions_admin():
     for row in c.fetchall():
         c.execute("SELECT permission FROM user_permissions WHERE user_id = ?", (row['id'],))
         perms = [r['permission'] for r in c.fetchall()]
-        users.append({
-            'id': row['id'],
-            'username': row['username'],
-            'permissions': perms
-        })
+        users.append({'id': row['id'], 'username': row['username'], 'permissions': perms})
 
     conn.close()
-    return render_template(
-        'permissions_admin.html',
-        users=users,
-        all_permissions=all_permissions
-    )
+    return render_template('permissions_admin.html', users=users, all_permissions=all_permissions)
 
 #🔷****
 @app.route('/update_all_permissions', methods=['POST'])
@@ -1551,84 +1493,20 @@ def save_zip_to_db(filename, zip_path):
 #🔷****
 #🔷****
 #🔷****
-#🔷****
+### تسجيل خروج المستخدم عن طريق مسح بيانات الجلسة ثم إعادة توجيهه إلى صفحة تسجيل الدخول
+
 @app.route('/logout', methods=['POST'])
 def logout():
     session.clear()
     return render_template("login.html")
 #🔷****
-@app.route('/chat')
-def chat_page():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-
-    conn = sqlite3.connect('data.db')
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("SELECT username, message FROM chat_messages ORDER BY timestamp ASC LIMIT 50")
-    messages = c.fetchall()
-    conn.close()
-
-    return render_template('chat.html', username=session['username'], messages=messages)
-
-@socketio.on('send_message')
-def handle_message(data):
-    username = data.get('user')
-    message = data.get('message')
-    image = data.get('image')
-    audio = data.get('audio')
-
-    if not username:
-        print("لا يوجد اسم مستخدم")
-        return
-
-    content = None
-    if message:
-        content = '[TEXT] ' + message
-    elif image:
-        content = '[IMAGE] ' + image
-    elif audio:
-        content = '[AUDIO] ' + audio
-
-    if not content:
-        print("⚠️ رسالة فارغة - لا يتم الحفظ")
-        return
-
-    try:
-        with sqlite3.connect('data.db') as conn:
-            c = conn.cursor()
-            c.execute("INSERT INTO chat_messages (username, message) VALUES (?, ?)", (username, content))
-            conn.commit()
-    except Exception as e:
-        print("❌ Error saving to chat_messages:", e)
-
-    # حفظ في json history file
-    save_message(username, {'text': message} if message else {'image': image} if image else {'audio': audio})
-
-    # إرسال للجميع
-    emit('receive_message', data, broadcast=True)
-
-
-@app.route('/chat_history')
-def chat_history():
-    since = datetime.now() - timedelta(days=7)
-    messages = [
-        m for m in load_history()
-        if datetime.fromisoformat(m['timestamp']) >= since
-    ]
-    return jsonify(messages)
-
-#🔷****
 #🔷****
 #🔷****
 #🔷****
 ### تشغيل تطبيق Flask عند تنفيذ الملف مباشرة، على المنفذ 5000 وعلى كل العناوين (0.0.0.0)
-print(f"✅ SocketIO running with async_mode: {socketio.async_mode}")
 
 if __name__ == '__main__':
-    import eventlet.wsgi
-    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 5000)), app)
-
+    app.run(host='0.0.0.0', port=5000, debug=True)
 #🔷****
 #🔷****
 #🔷****
