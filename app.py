@@ -1164,24 +1164,30 @@ def delete_zip_batch():
 
 def upload_to_drive(zip_path, filename):
     try:
-        SCOPES = ['https://www.googleapis.com/auth/drive.file']  # صلاحيات الوصول إلى Google Drive
+        print("🚀 Starting Google Drive upload...")  # لتأكيد بدء العملية
+
+        SCOPES = ['https://www.googleapis.com/auth/drive.file']
         creds_info = get_credentials_from_db()
         if not creds_info:
             print("❌ No credentials found in DB")
             return
 
-        # إنشاء Credentials من محتوى JSON المحفوظ
         creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         service = build('drive', 'v3', credentials=creds)
 
-        folder_id = '1SolVjxUU0iZ7YRgmgt424_JMtkPU6CUG'  # معرف المجلد في Google Drive
+        folder_id = '1f_h_NJVx2eBEo6siiFjdbJgaqHsxDJpi'  # ← تم التعديل هنا
         file_metadata = {'name': filename, 'parents': [folder_id]}
         media = MediaFileUpload(zip_path, mimetype='application/zip')
 
-        # تنفيذ عملية الرفع
-        service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        response = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        print(f"✅ File uploaded to Google Drive: {filename} (ID: {response.get('id')})")
+
     except Exception as e:
-        print("Google Drive upload failed:", e)
+        import traceback
+        print("❌ Google Drive upload failed:")
+        traceback.print_exc()
+
+
 #🔷****
 #🔷****
 #🔷****
