@@ -51,6 +51,12 @@ def save_message(user, content):
         json.dump(history, f)
 
 #🔷****
+socketio = SocketIO(app,
+                    async_mode='eventlet',
+                    cors_allowed_origins="*",
+                    ping_timeout=20,
+                    ping_interval=10)
+
 #🔷****
 #🔷****
 ### تهيئة تطبيق Flask وضبط المفتاح السري للجلسات
@@ -1620,7 +1626,9 @@ def chat_history():
 print(f"✅ SocketIO running with async_mode: {socketio.async_mode}")
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+    import eventlet.wsgi
+    eventlet.wsgi.server(eventlet.listen(('0.0.0.0', 5000)), app)
+
 #🔷****
 #🔷****
 #🔷****
