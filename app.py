@@ -3,6 +3,8 @@
 #🔷****
 #🔷****
 ### استيراد المكتبات المطلوبة لتشغيل تطبيق Flask والتعامل مع البيانات، الملفات، الصور، كلمات المرور، Excel/Word، Google Drive وغيرها
+import eventlet
+eventlet.monkey_patch()
 from datetime import timedelta, datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file, redirect, url_for, session, flash
 from flask_socketio import SocketIO, emit  # ✅ مكتبة الشات المباشر
@@ -57,7 +59,7 @@ app = Flask(__name__)
 app.secret_key = 'your-very-secret-key'
 
 # ⬇️ أضف هذا السطر بعد تهيئة Flask مباشرة
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
 @app.context_processor
 def inject_session_data():
@@ -1609,6 +1611,7 @@ def chat_history():
 #🔷****
 #🔷****
 ### تشغيل تطبيق Flask عند تنفيذ الملف مباشرة، على المنفذ 5000 وعلى كل العناوين (0.0.0.0)
+print(f"✅ SocketIO running with async_mode: {socketio.async_mode}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, use_reloader=False)
